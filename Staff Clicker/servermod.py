@@ -8,6 +8,8 @@ import os
 import time
 import glob
 import threading
+import socket
+import queue
 
 # Initialize pygame mixer for audio playback
 pygame.mixer.init()
@@ -123,13 +125,16 @@ def play_random_wrong_answer():
 # Function to handle the class selection and playing the student's audio file
 def handle_class_selection():
     selected_class = class_dropdown.get()
-    if selected_class:
-        name = choose_random_name(data, selected_class)
-        if name:
-            print(f'Playing audio for: {name}')
-            play_audio_for_name(name)
-        else:
-            print(f'No names found in the selected class: {selected_class}')
+    if not selected_class:
+        # If no class selected, pick a random class
+        selected_class = random.choice(list(data.columns))
+        print(f'No class selected, using random class: {selected_class}')
+    name = choose_random_name(data, selected_class)
+    if name:
+        print(f'Playing audio for: {name}')
+        play_audio_for_name(name)
+    else:
+        print(f'No names found in the selected class: {selected_class}')
 
 # Choose a random name from the selected class (column)
 def choose_random_name(data, selected_class):
@@ -159,28 +164,64 @@ def load_wrong_answer_files():
     wrong_files = glob.glob("wrong*.wav")
     return wrong_files if wrong_files else []
 
-# Main function for creating the GUI
+# Function to start the server in a separate thread
+def start_server(queue):
+    def server_thread():
+        HOST = ''  # Listen on all interfaces
+        PORT = 12345
+
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((HOST, PORT))
+        server_socket.listen(1)
+        print(f'Server listening on port {PORT}...')
+
+        try:
+            while True:
+                client_socket, client_address = server_socket.accept()
+                print(f'Connected by {client_address}')
+                with client_socket:
+                    while True:
+                        data = client_socket.recv(1024)
+                        if not data:
+                            break
+                        message = data.decode('utf-8').strip()
+                        print(f'Received: {message}')
+                        queue.put(message)
+        except Exception as e:
+            print(f'Server error: {e}')
+        finally:
+            server_socket.close()
+
+    threading.Thread(target=server_thread, daemon=True).start()
+
+# Main function for creating the GUI and integrating the server
 def main():
     global data, api_key, class_dropdown, music_dropdown
-    
+
     # Set your API key here
     api_key = os.getenv('ELEVENLABS_API_KEY')  # Replace with your ElevenLabs API key
     filename = 'classLists.csv'  # Path to your CSV file
-    
+
     data = load_csv(filename)
     if data is not None:
         # Create the main window
         root = tk.Tk()
         root.title("Class Selector and Music Player")
-        
+
+        # Create a queue for inter-thread communication
+        message_queue = queue.Queue()
+
+        # Start the server in a new thread
+        start_server(message_queue)
+
         # Label for the class dropdown
         label_class = tk.Label(root, text="Select a class:")
         label_class.pack(pady=10)
-        
+
         # Create a dropdown menu with the columns (class names) from the CSV
         class_dropdown = ttk.Combobox(root, values=list(data.columns))
         class_dropdown.pack(pady=10)
-        
+
         # Button to select and play a random student's name
         read_button = tk.Button(root, text="Read Random Name", command=handle_class_selection)
         read_button.pack(pady=10)
@@ -188,18 +229,18 @@ def main():
         # Button to update audio data for all names
         update_button = tk.Button(root, text="Update Audio Data", command=update_audio_data)
         update_button.pack(pady=10)
-        
+
         # Label for the music dropdown
         label_music = tk.Label(root, text="Select music:")
         label_music.pack(pady=10)
-        
+
         # Load available music files
         music_files = load_music_files()
-        
+
         # Create a dropdown menu with the available music files
         music_dropdown = ttk.Combobox(root, values=music_files)
         music_dropdown.pack(pady=10)
-        
+
         # Button to play the selected music file asynchronously
         play_music_button = tk.Button(root, text="Play Selected Music", command=play_selected_music)
         play_music_button.pack(pady=10)
@@ -211,6 +252,26 @@ def main():
         # Button to play a random wrong answer sound
         play_wrong_button = tk.Button(root, text="Play Wrong Answer", command=play_random_wrong_answer)
         play_wrong_button.pack(pady=10)
+
+        # Function to process messages from the queue
+        def process_messages():
+            while not message_queue.empty():
+                message = message_queue.get()
+                print(f'Processing message: {message}')
+                if message == 'RANDOM':
+                    handle_class_selection()
+                elif message == 'RIGHT':
+                    # Implement if there's an action for 'RIGHT'
+                    pass
+                elif message == 'LEFT':
+                    # Implement if there's an action for 'LEFT'
+                    pass
+                else:
+                    print(f'Unknown command: {message}')
+            root.after(100, process_messages)  # Check the queue every 100 milliseconds
+
+        # Start processing messages
+        process_messages()
 
         # Start the GUI event loop
         root.mainloop()
