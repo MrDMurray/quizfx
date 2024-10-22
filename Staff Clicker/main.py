@@ -164,7 +164,7 @@ def main():
     global data, api_key, class_dropdown, music_dropdown
     
     # Set your API key here
-    api_key = '7a8a2f5ba0eec71146fcd9bb848199f2'  # Replace with your ElevenLabs API key
+    api_key = ''  # Replace with your ElevenLabs API key
     filename = 'classLists.csv'  # Path to your CSV file
     
     data = load_csv(filename)
