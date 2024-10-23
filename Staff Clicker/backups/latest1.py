@@ -2,6 +2,7 @@ import network
 import socket
 import time
 from machine import Pin
+from mysecrets import *
 
 # Replace with your Wi-Fi credentials and PC server IP
 #SSID = 'Your Network Name'   # in secrets py file

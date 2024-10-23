@@ -10,7 +10,6 @@ import glob
 import threading
 import socket
 import queue
-import pyautogui
 
 # Initialize pygame mixer for audio playback
 pygame.mixer.init()
@@ -32,6 +31,42 @@ def generate_filename(name):
     cleaned_name = name.replace(" ", "").lower()  # Remove spaces and convert to lowercase
     return f"{cleaned_name[:3]}{cleaned_name[-3:]}.mp3"
 
+# Use ElevenLabs API to generate audio files for each name in the CSV
+def generate_audio_files(data, api_key, voice_id="onwK4e9ZLuTAKqWW03F9"):
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "xi-api-key": api_key,
+        "Content-Type": "application/json"
+    }
+    
+    for column in data.columns:
+        class_names = data[column].dropna().tolist()  # Get all the names in the column
+        for name in class_names:
+            filename = generate_filename(name)
+            
+            # Skip if the file already exists
+            if os.path.exists(filename):
+                print(f"File {filename} already exists, skipping...")
+                continue
+
+            # Data for the ElevenLabs API
+            data_payload = {
+                "text": name,
+                "voice_settings": {
+                    "stability": 0.75,
+                    "similarity_boost": 0.75
+                }
+            }
+            response = requests.post(url, headers=headers, json=data_payload)
+
+            if response.status_code == 200:
+                # Write the MP3 data to file
+                with open(filename, 'wb') as f:
+                    f.write(response.content)
+                print(f'Success! Created {filename}.')
+            else:
+                print(f'Error: {response.status_code}, {response.text}')
+
 # Play the corresponding MP3 file for the selected student
 def play_audio_for_name(name):
     filename = generate_filename(name)
@@ -46,15 +81,6 @@ def play_audio_for_name(name):
         print(f'Played {filename}.')
     else:
         print(f'File {filename} not found.')
-
-# Function to play sound effect when the checkbox is checked
-def play_slide_sound():
-    slide_sound_file = "slidefx.mp3"
-    if os.path.exists(slide_sound_file):
-        print(f"Playing slide sound: {slide_sound_file}")
-        pygame.mixer.Sound(slide_sound_file).play()
-    else:
-        print(f"Slide sound file '{slide_sound_file}' not found.")
 
 # Function to play the selected music file asynchronously
 def play_selected_music():
@@ -119,6 +145,10 @@ def choose_random_name(data, selected_class):
         print(f'Class "{selected_class}" not found in CSV.')
         return None
 
+# Function to handle audio data generation for all names in the CSV
+def update_audio_data():
+    generate_audio_files(data, api_key)
+
 # Function to dynamically load music files (e.g., "music1.mp3", "music2.mp3")
 def load_music_files():
     music_files = glob.glob("music*.mp3")
@@ -166,7 +196,7 @@ def start_server(queue):
 
 # Main function for creating the GUI and integrating the server
 def main():
-    global data, api_key, class_dropdown, music_dropdown, thunderslide_var
+    global data, api_key, class_dropdown, music_dropdown
 
     # Set your API key here
     api_key = os.getenv('ELEVENLABS_API_KEY')  # Replace with your ElevenLabs API key
@@ -196,10 +226,9 @@ def main():
         read_button = tk.Button(root, text="Read Random Name", command=handle_class_selection)
         read_button.pack(pady=10)
 
-        # Checkbox to enable/disable THUNDERSLIDE sound effect
-        thunderslide_var = tk.BooleanVar()
-        thunderslide_checkbox = tk.Checkbutton(root, text="THUNDERSLIDE", variable=thunderslide_var)
-        thunderslide_checkbox.pack(pady=10)
+        # Button to update audio data for all names
+        update_button = tk.Button(root, text="Update Audio Data", command=update_audio_data)
+        update_button.pack(pady=10)
 
         # Label for the music dropdown
         label_music = tk.Label(root, text="Select music:")
@@ -225,7 +254,6 @@ def main():
         play_wrong_button.pack(pady=10)
 
         # Function to process messages from the queue
-        # Function to process messages from the queue
         def process_messages():
             while not message_queue.empty():
                 message = message_queue.get()
@@ -233,21 +261,11 @@ def main():
                 if message == 'RANDOM':
                     handle_class_selection()
                 elif message == 'RIGHT':
-                    if thunderslide_var.get():
-                        play_slide_sound()  # Play sound if checkbox is checked
-                    try:
-                        pyautogui.press('right')  # Simulate pressing the right arrow key
-                        print('Simulated right arrow key press')
-                    except Exception as e:
-                        print(f'Error simulating right key press: {e}')
+                    # Implement if there's an action for 'RIGHT'
+                    pass
                 elif message == 'LEFT':
-                    if thunderslide_var.get():
-                        play_slide_sound()  # Play sound if checkbox is checked
-                    try:
-                        pyautogui.press('left')  # Simulate pressing the left arrow key
-                        print('Simulated left arrow key press')
-                    except Exception as e:
-                        print(f'Error simulating left key press: {e}')
+                    # Implement if there's an action for 'LEFT'
+                    pass
                 else:
                     print(f'Unknown command: {message}')
             root.after(100, process_messages)  # Check the queue every 100 milliseconds
