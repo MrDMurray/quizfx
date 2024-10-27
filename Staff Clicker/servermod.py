@@ -264,6 +264,13 @@ def main():
                         print('Playing Clapping')
                     except Exception as e:
                         print(f'Error playing clapping {e}')
+                        
+                elif message == 'WRONG':
+                    try:
+                        play_random_wrong_answer()
+                        print('Playing WRONG answer sound')
+                    except Exception as e:
+                        print(f'Error playing wrong answer {e}')
                 
                 else:
                     print(f'Unknown command: {message}')

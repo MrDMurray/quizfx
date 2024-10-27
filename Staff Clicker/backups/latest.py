@@ -20,7 +20,9 @@ RIGHT_BUTTON_PIN = 19
 RANDOM_BUTTON_PIN = 7
 LEFT_BUTTON_PIN = 0
 MUSIC_BUTTON_PIN = 2
-sensor_pin = machine.Pin(16, machine.Pin.IN)
+CLAP_BUTTON_PIN = 16
+WRONG_BUTTON_PIN = 17
+#sensor_pin = machine.Pin(16, machine.Pin.IN)
 
 # LED pins
 LED1_PIN = 17
@@ -280,7 +282,9 @@ def main():
     random_button = Pin(RANDOM_BUTTON_PIN, Pin.IN, Pin.PULL_DOWN)
     left_button = Pin(LEFT_BUTTON_PIN, Pin.IN, Pin.PULL_DOWN)
     music_button = Pin(MUSIC_BUTTON_PIN, Pin.IN, Pin.PULL_DOWN)
-    #clap_button = Pin(CLAP_BUTTON_PIN, Pin.IN)
+    clap_button = Pin(CLAP_BUTTON_PIN, Pin.IN, Pin.PULL_DOWN)
+    wrong_button = Pin(WRONG_BUTTON_PIN, Pin.IN, Pin.PULL_DOWN)
+    
     
 
     try:
@@ -330,7 +334,7 @@ def main():
                 pixels_fill(DARKRED)
                 pixels_show()
                 
-            if sensor_pin.value() == 1:
+            if clap_button.value():
                 print('Clap button pressed')
                 s.send(b'CLAP\n')
                 
@@ -340,6 +344,18 @@ def main():
                 color_chase(WHITE, 0.01)
                 color_chase(CYAN, 0.01)
                 color_chase(GREEN, 0.01)
+                time.sleep(1)
+                color_chase(BLACK, 0.01)
+                
+            if wrong_button.value():
+                print('Wrong button pressed')
+                s.send(b'WRONG\n')
+                
+                pixels_fill(RED)
+                pixels_show()
+                time.sleep(0.5)
+                color_chase(WHITE, 0.01)
+                color_chase(RED, 0.01)
                 time.sleep(1)
                 color_chase(BLACK, 0.01)
                 
